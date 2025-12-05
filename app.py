@@ -9,33 +9,16 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# BULLETPROOF CORS - Allow everything
+# Let flask-cors handle ALL CORS
 CORS(app, 
-     origins="*",
-     allow_headers="*",
-     expose_headers="*",
-     methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-     supports_credentials=False)
-
-# Add CORS headers to every response
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Max-Age', '3600')
-    return response
-
-# Handle all OPTIONS requests globally
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Max-Age', '3600')
-        return response
+     resources={r"/*": {
+         "origins": "*",
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"],
+         "expose_headers": ["Content-Type"],
+         "supports_credentials": False,
+         "max_age": 3600
+     }})
 
 # Mock tour data
 MOCK_TOURS = {
