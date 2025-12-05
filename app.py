@@ -1,26 +1,30 @@
 """
-TourOptimizer API - Lightweight Version
-No pandas dependency - uses JSON data directly
+TourOptimizer API - With BULLETPROOF CORS
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
-import json
 import os
 from datetime import datetime
 
 app = Flask(__name__)
 
-# Enable CORS for all origins (important for Vercel frontend!)
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+# BULLETPROOF CORS - Allow everything
+CORS(app, 
+     origins="*",
+     allow_headers="*",
+     expose_headers="*",
+     methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"])
 
-# Mock tour data - replace with your real data later
+# Add CORS headers to every response
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+# Mock tour data
 MOCK_TOURS = {
     'country': [
         {'venue': 'Nissan Stadium', 'city': 'Nashville', 'state': 'TN', 'capacity': 69143, 'revenue': 7287732, 'utilization': 97.6},
@@ -73,31 +77,40 @@ MOCK_TOURS = {
     ],
 }
 
+@app.route('/', methods=['GET'])
+def home():
+    """Root endpoint"""
+    return jsonify({
+        'message': 'TourOptimizer API',
+        'version': '1.0.0',
+        'cors': 'enabled',
+        'endpoints': {
+            'health': '/api/health',
+            'generate_tour': '/api/generate-tour (POST)',
+            'genres': '/api/genres'
+        }
+    })
+
 @app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health_check():
     """Check if API is alive"""
-    response = jsonify({
+    return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
         'venues_loaded': sum(len(tours) for tours in MOCK_TOURS.values()),
+        'cors': 'enabled',
         'message': 'TourOptimizer API is running!'
     })
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
 
 @app.route('/api/generate-tour', methods=['POST', 'OPTIONS'])
 def generate_tour():
     """Generate optimized tour route"""
-    # Handle preflight OPTIONS request
+    # Handle OPTIONS preflight
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        return response
+        return jsonify({'status': 'ok'})
     
     try:
-        data = request.json
+        data = request.json or {}
         
         genre = data.get('genre', 'country').lower()
         num_stops = int(data.get('numStops', 10))
@@ -121,40 +134,23 @@ def generate_tour():
             'statesCovered': states_covered
         }
         
-        response = jsonify({
+        return jsonify({
             'success': True,
             'stops': stops,
             'summary': summary
         })
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response
         
     except Exception as e:
-        response = jsonify({
+        return jsonify({
             'success': False,
             'error': str(e)
-        })
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response, 400
+        }), 400
 
 @app.route('/api/genres', methods=['GET'])
 def get_genres():
     """Return list of available genres"""
     return jsonify({
         'genres': list(MOCK_TOURS.keys())
-    })
-
-@app.route('/', methods=['GET'])
-def home():
-    """Root endpoint"""
-    return jsonify({
-        'message': 'TourOptimizer API',
-        'version': '1.0.0',
-        'endpoints': {
-            'health': '/api/health',
-            'generate_tour': '/api/generate-tour (POST)',
-            'genres': '/api/genres'
-        }
     })
 
 if __name__ == '__main__':
