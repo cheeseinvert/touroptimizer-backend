@@ -1,160 +1,139 @@
 """
-TourOptimizer API
-Flask backend for tour route generation
+TourOptimizer API - Lightweight Version
+No pandas dependency - uses JSON data directly
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pandas as pd
-import numpy as np
+import json
 import os
-import sys
 from datetime import datetime
 
-# Import our tour router
-sys.path.append(os.path.dirname(__file__))
-from tour_router import TourRouter
-
 app = Flask(__name__)
-CORS(app)  # Allow frontend to connect
+CORS(app)
 
-# Initialize router with data
-print("Loading tour data...")
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'us_only_with_states.csv')
-router = TourRouter(DATA_PATH)
-print(f"✓ Loaded {len(router.venues)} venues")
+# Mock tour data - replace with your real data later
+MOCK_TOURS = {
+    'country': [
+        {'venue': 'Nissan Stadium', 'city': 'Nashville', 'state': 'TN', 'capacity': 69143, 'revenue': 7287732, 'utilization': 97.6},
+        {'venue': 'Kyle Field', 'city': 'College Station', 'state': 'TX', 'capacity': 110905, 'revenue': 25691143, 'utilization': 100.0},
+        {'venue': 'Soldier Field', 'city': 'Chicago', 'state': 'IL', 'capacity': 49943, 'revenue': 17107701, 'utilization': 99.9},
+        {'venue': 'MetLife Stadium', 'city': 'East Rutherford', 'state': 'NJ', 'capacity': 107256, 'revenue': 17199470, 'utilization': 100.0},
+        {'venue': 'Gillette Stadium', 'city': 'Foxborough', 'state': 'MA', 'capacity': 112462, 'revenue': 14135021, 'utilization': 99.7},
+        {'venue': 'Paycor Stadium', 'city': 'Cincinnati', 'state': 'OH', 'capacity': 107226, 'revenue': 14661999, 'utilization': 100.0},
+        {'venue': 'Mercedes-Benz Stadium', 'city': 'Atlanta', 'state': 'GA', 'capacity': 49695, 'revenue': 15867905, 'utilization': 100.0},
+        {'venue': 'Raymond James Stadium', 'city': 'Tampa', 'state': 'FL', 'capacity': 132787, 'revenue': 12593174, 'utilization': 100.0},
+        {'venue': 'Lincoln Financial Field', 'city': 'Philadelphia', 'state': 'PA', 'capacity': 103162, 'revenue': 13078166, 'utilization': 100.0},
+        {'venue': 'Bank Of America Stadium', 'city': 'Charlotte', 'state': 'NC', 'capacity': 50664, 'revenue': 11854132, 'utilization': 100.0},
+    ],
+    'r&b': [
+        {'venue': 'Intuit Dome', 'city': 'Inglewood', 'state': 'CA', 'capacity': 11200, 'revenue': 2893143, 'utilization': 98.5},
+        {'venue': 'Climate Pledge Arena', 'city': 'Seattle', 'state': 'WA', 'capacity': 15000, 'revenue': 2234567, 'utilization': 96.2},
+        {'venue': 'United Center', 'city': 'Chicago', 'state': 'IL', 'capacity': 13456, 'revenue': 3456789, 'utilization': 99.1},
+        {'venue': 'Madison Square Garden', 'city': 'New York', 'state': 'NY', 'capacity': 13000, 'revenue': 4567890, 'utilization': 100.0},
+        {'venue': 'TD Garden', 'city': 'Boston', 'state': 'MA', 'capacity': 13000, 'revenue': 2345678, 'utilization': 97.8},
+        {'venue': 'Prudential Center', 'city': 'Newark', 'state': 'NJ', 'capacity': 12000, 'revenue': 1987654, 'utilization': 95.4},
+        {'venue': 'Spectrum Center', 'city': 'Charlotte', 'state': 'NC', 'capacity': 14000, 'revenue': 2876543, 'utilization': 98.0},
+        {'venue': 'Little Caesars Arena', 'city': 'Detroit', 'state': 'MI', 'capacity': 14500, 'revenue': 2654321, 'utilization': 96.7},
+        {'venue': 'Nationwide Arena', 'city': 'Columbus', 'state': 'OH', 'capacity': 14000, 'revenue': 2123456, 'utilization': 94.3},
+        {'venue': 'Wells Fargo Center', 'city': 'Philadelphia', 'state': 'PA', 'capacity': 13500, 'revenue': 3234567, 'utilization': 99.2},
+    ],
+    'k-pop': [
+        {'venue': 'Citi Field', 'city': 'New York', 'state': 'NY', 'capacity': 63000, 'revenue': 8765432, 'utilization': 100.0},
+        {'venue': 'Wrigley Field', 'city': 'Chicago', 'state': 'IL', 'capacity': 38000, 'revenue': 5432109, 'utilization': 99.5},
+        {'venue': 'SoFi Stadium', 'city': 'Inglewood', 'state': 'CA', 'capacity': 95000, 'revenue': 12345678, 'utilization': 100.0},
+        {'venue': 'Allegiant Stadium', 'city': 'Las Vegas', 'state': 'NV', 'capacity': 90000, 'revenue': 11234567, 'utilization': 100.0},
+        {'venue': 'Capital One Arena', 'city': 'Washington', 'state': 'DC', 'capacity': 13000, 'revenue': 2987654, 'utilization': 98.7},
+        {'venue': 'Footprint Center', 'city': 'Phoenix', 'state': 'AZ', 'capacity': 23000, 'revenue': 4321098, 'utilization': 97.3},
+        {'venue': 'Oracle Park', 'city': 'San Francisco', 'state': 'CA', 'capacity': 42000, 'revenue': 6543210, 'utilization': 99.8},
+        {'venue': 'T-Mobile Arena', 'city': 'Las Vegas', 'state': 'NV', 'capacity': 18000, 'revenue': 3654321, 'utilization': 98.9},
+        {'venue': 'Toyota Center', 'city': 'Houston', 'state': 'TX', 'capacity': 15000, 'revenue': 2876543, 'utilization': 96.5},
+        {'venue': 'American Airlines Center', 'city': 'Dallas', 'state': 'TX', 'capacity': 14000, 'revenue': 2543210, 'utilization': 95.8},
+    ],
+    'rock': [
+        {'venue': 'Red Rocks Amphitheatre', 'city': 'Morrison', 'state': 'CO', 'capacity': 9525, 'revenue': 1543210, 'utilization': 100.0},
+        {'venue': 'Greek Theatre', 'city': 'Los Angeles', 'state': 'CA', 'capacity': 5870, 'revenue': 987654, 'utilization': 99.2},
+        {'venue': 'Hollywood Bowl', 'city': 'Los Angeles', 'state': 'CA', 'capacity': 17500, 'revenue': 2876543, 'utilization': 98.7},
+        {'venue': 'Madison Square Garden', 'city': 'New York', 'state': 'NY', 'capacity': 13000, 'revenue': 3456789, 'utilization': 100.0},
+        {'venue': 'The Fillmore', 'city': 'San Francisco', 'state': 'CA', 'capacity': 1315, 'revenue': 234567, 'utilization': 100.0},
+    ],
+    'pop': [
+        {'venue': 'MetLife Stadium', 'city': 'East Rutherford', 'state': 'NJ', 'capacity': 82500, 'revenue': 14567890, 'utilization': 100.0},
+        {'venue': 'SoFi Stadium', 'city': 'Inglewood', 'state': 'CA', 'capacity': 95000, 'revenue': 16789012, 'utilization': 100.0},
+        {'venue': 'AT&T Stadium', 'city': 'Arlington', 'state': 'TX', 'capacity': 80000, 'revenue': 13456789, 'utilization': 99.8},
+        {'venue': 'Soldier Field', 'city': 'Chicago', 'state': 'IL', 'capacity': 61500, 'revenue': 10234567, 'utilization': 99.5},
+    ],
+}
 
-# Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Check if API is alive"""
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
-        'venues_loaded': len(router.venues)
+        'venues_loaded': sum(len(tours) for tours in MOCK_TOURS.values()),
+        'message': 'TourOptimizer API is running!'
     })
 
-# Main tour generation endpoint
 @app.route('/api/generate-tour', methods=['POST'])
 def generate_tour():
     """Generate optimized tour route"""
     try:
-        # Get parameters from request
         data = request.json
         
-        genre = data.get('genre', 'country')
-        starting_city = data.get('startCity', 'Nashville')
-        starting_state = data.get('startState', 'Tennessee')
+        genre = data.get('genre', 'country').lower()
         num_stops = int(data.get('numStops', 10))
-        min_capacity = int(data.get('minCapacity', 0)) if data.get('minCapacity') else None
-        max_capacity = int(data.get('maxCapacity', 999999)) if data.get('maxCapacity') else None
-        optimize_for = data.get('optimizeFor', 'balanced')
         
-        print(f"Generating {genre} tour from {starting_city}, {starting_state}")
+        # Get tour data for genre (fallback to country if genre not found)
+        tour_data = MOCK_TOURS.get(genre, MOCK_TOURS['country'])
         
-        # Generate tour
-        tour = router.build_tour_route(
-            genre=genre,
-            starting_city=starting_city,
-            starting_state=starting_state,
-            num_stops=num_stops,
-            min_capacity=min_capacity,
-            max_capacity=max_capacity,
-            optimize_for=optimize_for
-        )
-        
-        # Convert DataFrame to list of dicts
-        tour_stops = []
-        for idx, row in tour.iterrows():
-            tour_stops.append({
-                'venue': row['Venue'],
-                'city': row['City'],
-                'state': row['State'],
-                'capacity': int(row['Capacity']),
-                'revenue': float(row['Avg_Revenue']),
-                'utilization': float(row['Avg_Capacity_Util']),
-                'ticketPrice': float(row['Avg_Ticket_Price']),
-                'events': int(row['Event_Count'])
-            })
+        # Limit to requested number of stops
+        stops = tour_data[:num_stops]
         
         # Calculate summary
-        summary = {
-            'totalRevenue': float(tour['Avg_Revenue'].sum()),
-            'avgUtilization': float(tour['Avg_Capacity_Util'].mean()),
-            'totalCapacity': int(tour['Capacity'].sum()),
-            'statesCovered': int(tour['State'].nunique()),
-            'avgTicketPrice': float(tour['Avg_Ticket_Price'].mean())
-        }
+        total_revenue = sum(stop['revenue'] for stop in stops)
+        avg_utilization = sum(stop['utilization'] for stop in stops) / len(stops) if stops else 0
+        total_capacity = sum(stop['capacity'] for stop in stops)
+        states_covered = len(set(stop['state'] for stop in stops))
         
-        print(f"✓ Generated {len(tour_stops)} stop tour")
+        summary = {
+            'totalRevenue': total_revenue,
+            'avgUtilization': round(avg_utilization, 1),
+            'totalCapacity': total_capacity,
+            'statesCovered': states_covered
+        }
         
         return jsonify({
             'success': True,
-            'stops': tour_stops,
+            'stops': stops,
             'summary': summary
         })
         
     except Exception as e:
-        print(f"Error: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 400
 
-# Get available genres
 @app.route('/api/genres', methods=['GET'])
 def get_genres():
     """Return list of available genres"""
-    genres = [
-        'country', 'r&b', 'k-pop', 'rock', 'pop', 
-        'hip-hop', 'metal', 'indie', 'electronic',
-        'jazz', 'blues', 'reggae', 'folk'
-    ]
-    return jsonify({'genres': genres})
+    return jsonify({
+        'genres': list(MOCK_TOURS.keys())
+    })
 
-# Get market insights
-@app.route('/api/market/<state>', methods=['GET'])
-def get_market_insights(state):
-    """Get insights for a specific state"""
-    try:
-        insights = router.get_market_insights(state)
-        return jsonify({
-            'success': True,
-            'insights': insights
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
-
-# Download tour as CSV
-@app.route('/api/download-tour', methods=['POST'])
-def download_tour():
-    """Download tour as CSV file"""
-    try:
-        data = request.json
-        stops = data.get('stops', [])
-        
-        # Convert to DataFrame
-        df = pd.DataFrame(stops)
-        
-        # Save to CSV
-        output_path = '/tmp/tour_route.csv'
-        df.to_csv(output_path, index=False)
-        
-        return send_file(
-            output_path,
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name='tour_route.csv'
-        )
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 400
+@app.route('/', methods=['GET'])
+def home():
+    """Root endpoint"""
+    return jsonify({
+        'message': 'TourOptimizer API',
+        'version': '1.0.0',
+        'endpoints': {
+            'health': '/api/health',
+            'generate_tour': '/api/generate-tour (POST)',
+            'genres': '/api/genres'
+        }
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
