@@ -10,7 +10,15 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+
+# Enable CORS for all origins (important for Vercel frontend!)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 # Mock tour data - replace with your real data later
 MOCK_TOURS = {
@@ -65,19 +73,29 @@ MOCK_TOURS = {
     ],
 }
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health_check():
     """Check if API is alive"""
-    return jsonify({
+    response = jsonify({
         'status': 'healthy',
         'timestamp': datetime.utcnow().isoformat(),
         'venues_loaded': sum(len(tours) for tours in MOCK_TOURS.values()),
         'message': 'TourOptimizer API is running!'
     })
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
-@app.route('/api/generate-tour', methods=['POST'])
+@app.route('/api/generate-tour', methods=['POST', 'OPTIONS'])
 def generate_tour():
     """Generate optimized tour route"""
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        return response
+    
     try:
         data = request.json
         
@@ -103,17 +121,21 @@ def generate_tour():
             'statesCovered': states_covered
         }
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'stops': stops,
             'summary': summary
         })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
         
     except Exception as e:
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e)
-        }), 400
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 400
 
 @app.route('/api/genres', methods=['GET'])
 def get_genres():
